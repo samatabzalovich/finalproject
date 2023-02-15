@@ -12,23 +12,28 @@ import (
 	"time"
 )
 
-type CartItem struct {
-	ProductItem Product `json:"product"`
-	Quantity    int     `json:"quantity"`
-}
+//	Define a User struct to represent an individual user. Importantly, notice how we are
+//
+// using the json:"-" struct tag to prevent the Password and Version fields appearing in
+// any output when we encode it to JSON. Also notice that the Password field uses the
+// custom password type defined below.
+// Declare a new AnonymousUser variable.
+var AnonymousUser = &User{}
+
 type User struct {
-	ID          int64      `json:"id"`
-	CreatedAt   time.Time  `json:"created_at"`
-	PhoneNumber string     `json:"phoneNumber"`
-	Address     string     `json:"address"`
-	FirstName   string     `json:"firstName"`
-	LastName    string     `json:"lastName"`
-	Email       string     `json:"email"`
-	Password    password   `json:"-"`
-	Activated   bool       `json:"activated"`
-	Type        string     `json:"type"`
-	Cart        []CartItem `json:"cart"`
-	Version     int        `json:"-"`
+	ID int64 `json:"id"`
+	//CreatedAt time.Time `json:"created_at"`
+	FirstName string   `json:"name"`
+	LastName  string   `json:"name"`
+	Email     string   `json:"email"`
+	Password  password `json:"-"`
+	Activated bool     `json:"activated"`
+	Version   int      `json:"-"`
+}
+
+// Check if a User instance is the AnonymousUser.
+func (u *User) IsAnonymous() bool {
+	return u == AnonymousUser
 }
 
 // Create a custom password type which is a struct containing the plaintext and hashed
@@ -52,7 +57,7 @@ func (p *password) Set(plaintextPassword string) error {
 	return nil
 }
 
-// The Matches() method checks whether the provided plaintext password matches the
+// Matches () method checks whether the provided plaintext password matches the
 // hashed password stored in the struct, returning true if it matches and false
 // otherwise.
 func (p *password) Matches(plaintextPassword string) (bool, error) {
@@ -114,9 +119,9 @@ type UserModel struct {
 // that we did when creating a movie.
 func (m UserModel) Insert(user *User, r *http.Request) error {
 	query := `
-INSERT INTO users (firstName, lastName, email, password_hash, activated)
+INSERT INTO users (first_name, last_name, email, password_hash, activated)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, created_at, version`
+RETURNING id, version`
 	args := []any{user.FirstName, user.LastName, user.Email, user.Password.hash, user.Activated}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
@@ -124,7 +129,7 @@ RETURNING id, created_at, version`
 	// to perform the insert there will be a violation of the UNIQUE "users_email_key"
 	// constraint that we set up in the previous chapter. We check for this error
 	// specifically, and return custom ErrDuplicateEmail error instead.
-	err := m.DB.QueryRow(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.Version)
+	err := m.DB.QueryRow(ctx, query, args...).Scan(&user.ID, &user.Version)
 	if err != nil {
 		switch {
 		case err.Error() == `ERROR: duplicate key value violates unique constraint "users_email_key" (SQLSTATE 23505)`:
@@ -138,7 +143,7 @@ RETURNING id, created_at, version`
 
 func (m UserModel) GetByEmail(email string, r *http.Request) (*User, error) {
 	query := `
-SELECT id, created_at, name, email, password_hash, activated, version
+SELECT id, first_name, last_name, email, password_hash, activated, version
 FROM users
 WHERE email = $1`
 	var user User
@@ -146,7 +151,6 @@ WHERE email = $1`
 	defer cancel()
 	err := m.DB.QueryRow(ctx, query, email).Scan(
 		&user.ID,
-		&user.CreatedAt,
 		&user.FirstName,
 		&user.LastName,
 		&user.Email,
@@ -173,15 +177,15 @@ WHERE email = $1`
 func (m UserModel) Update(user *User, r *http.Request) error {
 	query := `
 UPDATE users
-SET name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1
-WHERE id = $5 AND version = $6
+SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5
+WHERE id = $6 AND version = $7
 RETURNING version`
 	args := []any{
-		&user.FirstName,
-		&user.LastName,
+		user.FirstName,
 		user.Email,
 		user.Password.hash,
 		user.Activated,
+		user.LastName,
 		user.ID,
 		user.Version,
 	}
@@ -206,7 +210,7 @@ func (m UserModel) GetForToken(tokenScope, tokenPlaintext string, r *http.Reques
 	tokenHash := sha256.Sum256([]byte(tokenPlaintext))
 	// Set up the SQL query.
 	query := `
-SELECT users.id, users.created_at, users.name, users.email, users.password_hash, users.activated, users.version
+SELECT id, first_name, last_name, phone_number, email, password_hash, address, activated, profile_pic, version
 FROM users
 INNER JOIN tokens
 ON users.id = tokens.user_id
@@ -225,7 +229,6 @@ AND tokens.expiry > $3`
 	// record is found we return an ErrRecordNotFound error.
 	err := m.DB.QueryRow(ctx, query, args...).Scan(
 		&user.ID,
-		&user.CreatedAt,
 		&user.FirstName,
 		&user.LastName,
 		&user.Email,

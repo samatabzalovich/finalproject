@@ -1,9 +1,9 @@
 package main
 
 import (
-	"awesomeProject2/internal/validator"
 	"encoding/json"
 	"errors"
+	"finalproject/internal/validator"
 	"fmt"
 	"github.com/julienschmidt/httprouter"
 	"io"

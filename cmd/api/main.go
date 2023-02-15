@@ -44,13 +44,6 @@ type config struct {
 	}
 }
 
-// Define an application struct to hold the dependencies for our HTTP handlers, helpers,
-// and middleware. At the moment this only contains a copy of the config struct and a
-// logger, but it will grow to include a lot more as our build progresses.
-// Update the application struct to hold a new Mailer instance.
-// Include a sync.WaitGroup in the application struct. The zero-value for a
-// sync.WaitGroup type is a valid, useable, sync.WaitGroup with a 'counter' value of 0,
-// so we don't need to do anything else to initialize it before we can use it.
 type application struct {
 	config config
 	logger *jsonlog.Logger
@@ -63,36 +56,20 @@ func main() {
 	var cfg config
 	flag.IntVar(&cfg.port, "port", 4000, "API server port")
 	flag.StringVar(&cfg.env, "env", "development", "Environment (development|staging|production)")
-	// Read the DSN value from the db-dsn command-line flag into the config struct. We
-	// default to using our development DSN if no flag is provided.
-	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("GREENLIGHT_DB_DSN"), "PostgreSQL DSN")
-	// Read the connection pool settings from command-line flags into the config struct.
-	// Notice the default values that we're using?
+	flag.StringVar(&cfg.db.dsn, "db-dsn", os.Getenv("COMMERCE_DB_DSN"), "PostgreSQL DSN")
 	flag.IntVar(&cfg.db.maxOpenConns, "db-max-open-conns", 25, "PostgreSQL max open connections")
 	flag.IntVar(&cfg.db.maxIdleConns, "db-max-idle-conns", 25, "PostgreSQL max idle connections")
 	flag.StringVar(&cfg.db.maxIdleTime, "db-max-idle-time", "15m", "PostgreSQL max connection idle time")
-	// Create command line flags to read the setting values into the config struct.
-	// Notice that we use true as the default for the 'enabled' setting?
 	flag.Float64Var(&cfg.limiter.rps, "limiter-rps", 2, "Rate limiter maximum requests per second")
 	flag.IntVar(&cfg.limiter.burst, "limiter-burst", 4, "Rate limiter maximum burst")
 	flag.BoolVar(&cfg.limiter.enabled, "limiter-enabled", true, "Enable rate limiter")
-	// Read the SMTP server configuration settings into the config struct, using the
-	// Mailtrap settings as the default values. IMPORTANT: If you're following along,
-	// make sure to replace the default values for smtp-username and smtp-password
-	// with your own Mailtrap credentials.
 	flag.StringVar(&cfg.smtp.host, "smtp-host", "smtp.office365.com", "SMTP host")
 	flag.IntVar(&cfg.smtp.port, "smtp-port", 587, "SMTP port")
 	flag.StringVar(&cfg.smtp.username, "smtp-username", "211387@astanait.edu.kz", "SMTP username")
 	flag.StringVar(&cfg.smtp.password, "smtp-password", "190704Ibraev$", "SMTP password")
 	flag.StringVar(&cfg.smtp.sender, "smtp-sender", "211387@astanait.edu.kz", "SMTP sender")
-
 	flag.Parse()
-	// Initialize a new jsonlog.Logger which writes any messages *at or above* the INFO
-	// severity level to the standard out stream.
 	logger := jsonlog.New(os.Stdout, jsonlog.LevelInfo)
-	// Call the openDB() helper function (see below) to create the connection pool,
-	// passing in the config struct. If this returns an error, we log it and exit the
-	// application immediately.
 	db, err := openDB(cfg)
 	if err != nil {
 		logger.PrintFatal(err, nil)
@@ -100,12 +77,7 @@ func main() {
 
 	defer db.Close()
 
-	// Likewise use the PrintInfo() method to write a message at the INFO level.
 	logger.PrintInfo("database connection pool established", nil)
-	// Use the data.NewModels() function to initialize a Models struct, passing in the
-	// connection pool as a parameter.
-	// Initialize a new Mailer instance using the settings from the command line
-	// flags, and add it to the application struct.
 	app := &application{
 		config: cfg,
 		logger: logger,
@@ -120,9 +92,6 @@ func main() {
 		ReadTimeout:  10 * time.Second,
 		WriteTimeout: 30 * time.Second,
 	}
-	// Again, we use the PrintInfo() method to write a "starting server" message at the
-	// INFO level. But this time we pass a map containing additional properties (the
-	// operating environment and server address) as the final parameter.
 	logger.PrintInfo("starting server", map[string]string{
 		"addr": srv.Addr,
 		"env":  cfg.env,
