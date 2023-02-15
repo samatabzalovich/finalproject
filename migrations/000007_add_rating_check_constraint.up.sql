@@ -1,0 +1,1 @@
+ALTER TABLE ratings ADD CONSTRAINT rating_check CHECK (rating BETWEEN 1 AND 10);

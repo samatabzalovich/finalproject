@@ -1,0 +1,1 @@
+ALTER TABLE ratings DROP CONSTRAINT if exists rating_check;

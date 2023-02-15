@@ -1,1 +1,1 @@
-export GREENLIGHT_DB_DSN='postgres://postgres:190704Samat@localhost/greenlight?sslmode=disable'
+export COMMERCE_DB_DSN='postgres://postgres:190704Samat@localhost/greenlight?sslmode=disable'
