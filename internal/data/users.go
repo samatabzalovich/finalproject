@@ -23,12 +23,15 @@ var AnonymousUser = &User{}
 type User struct {
 	ID int64 `json:"id"`
 	//CreatedAt time.Time `json:"created_at"`
-	FirstName string   `json:"name"`
-	LastName  string   `json:"name"`
-	Email     string   `json:"email"`
-	Password  password `json:"-"`
-	Activated bool     `json:"activated"`
-	Version   int      `json:"-"`
+	FirstName   string   `json:"name"`
+	LastName    string   `json:"name"`
+	PhoneNumber string   `json:"phoneNumber"`
+	Email       string   `json:"email"`
+	Address     string   `json:"address"`
+	ProfilePic  string   `json:"profilePic"`
+	Password    password `json:"-"`
+	Activated   bool     `json:"activated"`
+	Version     int      `json:"-"`
 }
 
 // Check if a User instance is the AnonymousUser.
@@ -118,11 +121,9 @@ type UserModel struct {
 // RETURNING clause to read them into the User struct after the insert, in the same way
 // that we did when creating a movie.
 func (m UserModel) Insert(user *User, r *http.Request) error {
-	query := `
-INSERT INTO users (first_name, last_name, email, password_hash, activated)
-VALUES ($1, $2, $3, $4, $5)
+	query := `INSERT INTO users (first_name, last_name, email, password_hash, activated, phone_number, address, profile_pic) VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, version`
-	args := []any{user.FirstName, user.LastName, user.Email, user.Password.hash, user.Activated}
+	args := []any{user.FirstName, user.LastName, user.Email, user.Password.hash, user.Activated, user.PhoneNumber, user.Address, user.ProfilePic}
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	defer cancel()
 	// If the table already contains a record with this email address, then when we try
@@ -143,7 +144,7 @@ RETURNING id, version`
 
 func (m UserModel) GetByEmail(email string, r *http.Request) (*User, error) {
 	query := `
-SELECT id, first_name, last_name, email, password_hash, activated, version
+SELECT id, first_name, last_name, phone_number, email, password_hash, address, activated, profile_pic, version
 FROM users
 WHERE email = $1`
 	var user User
@@ -153,9 +154,12 @@ WHERE email = $1`
 		&user.ID,
 		&user.FirstName,
 		&user.LastName,
+		&user.PhoneNumber,
 		&user.Email,
 		&user.Password.hash,
+		&user.Address,
 		&user.Activated,
+		&user.ProfilePic,
 		&user.Version,
 	)
 	if err != nil {
@@ -177,8 +181,9 @@ WHERE email = $1`
 func (m UserModel) Update(user *User, r *http.Request) error {
 	query := `
 UPDATE users
-SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5
-WHERE id = $6 AND version = $7
+SET first_name = $1, email = $2, password_hash = $3, activated = $4, version = version + 1, last_name = $5,
+    profile_pic = $6, address = $7, phone_number = $8
+WHERE id = $9 AND version = $10
 RETURNING version`
 	args := []any{
 		user.FirstName,
@@ -186,6 +191,9 @@ RETURNING version`
 		user.Password.hash,
 		user.Activated,
 		user.LastName,
+		user.ProfilePic,
+		user.Address,
+		user.PhoneNumber,
 		user.ID,
 		user.Version,
 	}
@@ -231,9 +239,12 @@ AND tokens.expiry > $3`
 		&user.ID,
 		&user.FirstName,
 		&user.LastName,
+		&user.PhoneNumber,
 		&user.Email,
 		&user.Password.hash,
+		&user.Address,
 		&user.Activated,
+		&user.ProfilePic,
 		&user.Version,
 	)
 	if err != nil {
