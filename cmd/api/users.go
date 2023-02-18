@@ -11,10 +11,13 @@ import (
 func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Request) {
 	// Create an anonymous struct to hold the expected data from the request body.
 	var input struct {
-		FirstName string `json:"firstName"`
-		LastName  string `json:"lastName"`
-		Email     string `json:"email"`
-		Password  string `json:"password"`
+		FirstName   string `json:"firstName"`
+		LastName    string `json:"lastName"`
+		PhoneNumber string `json:"phoneNumber"`
+		Email       string `json:"email"`
+		Address     string `json:"address"`
+		ProfilePic  string `json:"profilePic"`
+		Password    string `json:"password"`
 	}
 	// Parse the request body into the anonymous struct.
 	err := app.readJSON(w, r, &input)
@@ -27,10 +30,13 @@ func (app *application) registerUserHandler(w http.ResponseWriter, r *http.Reque
 	// Activated field will have the zero-value of false by default. But setting this
 	// explicitly helps to make our intentions clear to anyone reading the code.
 	user := &data.User{
-		FirstName: input.FirstName,
-		LastName:  input.LastName,
-		Email:     input.Email,
-		Activated: false,
+		FirstName:   input.FirstName,
+		LastName:    input.LastName,
+		Email:       input.Email,
+		ProfilePic:  input.ProfilePic,
+		PhoneNumber: input.PhoneNumber,
+		Address:     input.Address,
+		Activated:   false,
 	}
 	// Use the Password.Set() method to generate and store the hashed and plaintext
 	// passwords.

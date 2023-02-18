@@ -24,11 +24,29 @@ type Models struct {
 		Delete(id int64, r *http.Request) error
 		GetAll(title string, genres []string, filters Filters, r *http.Request) ([]*Product, Metadata, error)
 	}
+	Orders interface {
+		Insert(userId int64, order *Order, r *http.Request) error
+		//Get(id int64, r *http.Request) (*Order, error)
+		Get(id int64, r *http.Request) (*Order, error)
+		GetAllOrdersForUser(userId int64, filters Filters, r *http.Request) ([]*Order, Metadata, error)
+		Update(order *Order, r *http.Request) error
+		Delete(id int64, r *http.Request) error
+	}
+	Categories interface {
+		Insert(category *Category, r *http.Request) error
+		Get(id int, r *http.Request) (*Category, error)
+		Update(movie *Category, r *http.Request) error
+		Delete(id int, r *http.Request) error
+		GetAll(r *http.Request) ([]*Category, error)
+	}
 	Users interface {
 		Insert(user *User, r *http.Request) error
 		GetByEmail(email string, r *http.Request) (*User, error)
 		Update(user *User, r *http.Request) error
 		GetForToken(tokenScope, tokenPlaintext string, r *http.Request) (*User, error)
+	}
+	Permissions interface {
+		GetAllForUser(userID int64) (Permissions, error)
 	}
 	Tokens interface {
 		New(userID int64, ttl time.Duration, scope string) (*Token, error)
@@ -40,17 +58,27 @@ type Models struct {
 // For ease of use, we also add a New() method which returns a Models struct containing
 // the initialized MovieModel.
 func NewModels(db *pgxpool.Pool) Models {
-	m := MovieModel{DB: db}
+	m := ProductModel{DB: db}
 	u := UserModel{
 		DB: db,
 	}
 	t := TokenModel{
 		DB: db,
 	}
+	c := CategoryModel{
+		DB: db,
+	}
 	return Models{
-		Products: m,
-		Users:    u,
-		Tokens:   t,
+		Products:   m,
+		Users:      u,
+		Tokens:     t,
+		Categories: c,
+		Permissions: PermissionModel{
+			db,
+		},
+		Orders: OrderModel{
+			DB: db,
+		},
 	}
 }
 
