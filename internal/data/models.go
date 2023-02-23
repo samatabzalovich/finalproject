@@ -50,6 +50,7 @@ type Models struct {
 	}
 	Permissions interface {
 		GetAllForUser(userID int64) (Permissions, error)
+		InsertPermissionRead(userID int64) error
 	}
 	Tokens interface {
 		New(userID int64, ttl time.Duration, scope string) (*Token, error)

@@ -144,6 +144,11 @@ func (app *application) activateUserHandler(w http.ResponseWriter, r *http.Reque
 		app.serverErrorResponse(w, r, err)
 		return
 	}
+	err = app.models.Permissions.InsertPermissionRead(user.ID)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
 	// Send the updated user details to the client in a JSON response.
 	err = app.writeJSON(w, http.StatusOK, envelope{"user": user}, nil)
 	if err != nil {

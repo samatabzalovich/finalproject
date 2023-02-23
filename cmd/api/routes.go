@@ -12,6 +12,8 @@ func (app *application) routes() http.Handler {
 	router.HandlerFunc(http.MethodGet, "/v1/healthcheck", app.healthcheckHandler)
 	// Use the requirePermission() middleware on each of the /v1/movies** endpoints,
 	// passing in the required permission code as the first parameter.
+	router.HandlerFunc(http.MethodGet, "/v1/category", app.requirePermission("products:read", app.listCategoriesHandler))         //
+	router.HandlerFunc(http.MethodPost, "/v1/category", app.requirePermission("products:write", app.createCategoryHandler))       //
 	router.HandlerFunc(http.MethodGet, "/v1/users/orders", app.requirePermission("products:read", app.listUserOrdersHandler))     //
 	router.HandlerFunc(http.MethodPost, "/v1/users/orders", app.requirePermission("products:order", app.orderProductHandler))     //
 	router.HandlerFunc(http.MethodDelete, "/v1/users/orders/:id", app.requirePermission("products:read", app.deleteOrderHandler)) //

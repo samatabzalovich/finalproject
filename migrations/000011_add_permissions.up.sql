@@ -11,4 +11,5 @@ CREATE TABLE IF NOT EXISTS users_permissions (
 INSERT INTO permissions (code)
 VALUES
     ('products:read'),
-    ('products:write');
+    ('products:write'),
+    ('products:order');

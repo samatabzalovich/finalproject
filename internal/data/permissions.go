@@ -57,6 +57,18 @@ func (m PermissionModel) GetAllForUser(userID int64) (Permissions, error) {
 	}
 	return permissions, nil
 }
+func (m PermissionModel) InsertPermissionRead(userID int64) error {
+	query := `INSERT INTO users_permissions  (user_id, permission_id) 
+values ($1, (select id from permissions where code = 'products:read')), 
+        ($1, (select id from permissions where code = 'products:order'))`
+	ctx := context.Background()
+	c, err := m.DB.Exec(ctx, query, userID)
+	c.Insert()
+	if err != nil {
+		return err
+	}
+	return nil
+}
 
 type NewMockPermissionModel struct {
 }
