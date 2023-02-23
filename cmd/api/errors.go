@@ -97,3 +97,7 @@ func (app *application) rateLimitExceededResponse(w http.ResponseWriter, r *http
 	message := "rate limit exceeded"
 	app.errorResponse(w, r, http.StatusTooManyRequests, message)
 }
+func (app *application) notPermittedReview(w http.ResponseWriter, r *http.Request) {
+	message := "before leave a review you must order this product"
+	app.errorResponse(w, r, http.StatusNotFound, message)
+}

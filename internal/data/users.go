@@ -133,7 +133,7 @@ RETURNING id, version`
 	err := m.DB.QueryRow(ctx, query, args...).Scan(&user.ID, &user.Version)
 	if err != nil {
 		switch {
-		case err.Error() == `ERROR: duplicate key value violates unique constraint "users_email_key" (SQLSTATE 23505)`:
+		case err.Error() == `ERROR: duplicate key value violates unique constraint "email_unique" (SQLSTATE 23505)`:
 			return ErrDuplicateEmail
 		default:
 			return err

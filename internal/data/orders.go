@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"finalproject/internal/validator"
+	"fmt"
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"net/http"
@@ -92,12 +93,11 @@ func (m OrderModel) Insert(userId int64, order *Order, r *http.Request) error {
 		RETURNING version`
 		err = m.DB.QueryRow(ctx, query, item.Quantity, product.ID, product.Version).Scan(&product.Version)
 		if err != nil {
-
 			switch {
-			case errors.Is(err, sql.ErrNoRows):
-				return ErrEditConflict
+			case err.Error() == `ERROR: new row for relation "products" violates check constraint "quantity_check" (SQLSTATE 23514)`:
+				return ErrOutOfStock
 			case errors.Is(err, pgx.ErrNoRows):
-				return ErrEditConflict
+				return ErrRecordNotFound
 			default:
 				return err
 			}
@@ -121,20 +121,55 @@ func (m OrderModel) Insert(userId int64, order *Order, r *http.Request) error {
 	}
 	return nil
 }
-func (m OrderModel) GetAllOrdersForUser(userId int64, filters Filters, r *http.Request) ([]*Order, Metadata, error) {
-	if userId < 1 {
-		return nil, Metadata{}, ErrRecordNotFound
+func (m OrderModel) Get(id int64, r *http.Request) (*Order, error) {
+	if id < 1 {
+		return nil, ErrRecordNotFound
 	}
-	// Define the SQL query for retrieving the order data.
-	query := `SELECT count(*) over (),id, ordered_at, status, total_price, address
+	query := `SELECT id,user_id, ordered_at, status, total_price, address, version
 				FROM orders
-					WHERE user_id = $1`
+					WHERE id = $1`
+	var order Order
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	// Importantly, use defer to make sure that we cancel the context before the Get()
 	// method returns.
 	defer cancel()
 
-	rows, err := m.DB.Query(ctx, query, userId)
+	err := m.DB.QueryRow(ctx, query, id).Scan(
+		&order.ID,
+		&order.UserId,
+		&order.OrderedAt,
+		&order.Status,
+		&order.TotalPrice,
+		&order.Address,
+		&order.Version,
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, sql.ErrNoRows):
+			return nil, ErrRecordNotFound
+		case errors.Is(err, pgx.ErrNoRows):
+			return nil, ErrRecordNotFound
+		default:
+			return nil, err
+		}
+	}
+	// Otherwise, return a pointer to the Movie struct.
+	return &order, nil
+}
+func (m OrderModel) GetAllOrdersForUser(userId int64, filters Filters, r *http.Request) ([]*Order, Metadata, error) {
+	if userId < 1 {
+		return nil, Metadata{}, ErrRecordNotFound
+	}
+	// Define the SQL query for retrieving the order data.
+	query := fmt.Sprintf(`SELECT count(*) over (),id, ordered_at, status, total_price, address
+				FROM orders
+					WHERE user_id = $1 ORDER BY %s %s LIMIT $2 OFFSET $3`, filters.sortColumn(), filters.sortDirection())
+	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
+	// Importantly, use defer to make sure that we cancel the context before the Get()
+	// method returns.
+	defer cancel()
+
+	rows, err := m.DB.Query(ctx, query, userId, filters.limit(), filters.offset())
 	if err != nil {
 		return nil, Metadata{}, err
 	}
@@ -251,38 +286,34 @@ func (m OrderModel) Delete(id int64, r *http.Request) error {
 	return nil
 }
 
-func (m OrderModel) Get(id int64, r *http.Request) (*Order, error) {
-	if id < 1 {
-		return nil, ErrRecordNotFound
+func (m OrderModel) IsUserOrderedProduct(userId int64, productId int64, r *http.Request) (bool, error) {
+	if productId < 1 {
+		return false, ErrRecordNotFound
 	}
-	query := `SELECT id,user_id, ordered_at, status, total_price, address, version
-				FROM orders
-					WHERE id = $1`
-	var order Order
+	query := `Select exists(SELECT orders.id, orders.ordered_at, orders.status, orders.total_price, orders.address
+              FROM orders
+                       JOIN order_items ON orders.id = order_items.order_id
+              WHERE orders.user_id = 3
+                AND order_items.product_id = 9);`
+	var isOrdered bool
 	ctx, cancel := context.WithTimeout(r.Context(), 3*time.Second)
 	// Importantly, use defer to make sure that we cancel the context before the Get()
 	// method returns.
 	defer cancel()
 
-	err := m.DB.QueryRow(ctx, query, id).Scan(
-		&order.ID,
-		&order.UserId,
-		&order.OrderedAt,
-		&order.Status,
-		&order.TotalPrice,
-		&order.Address,
-		&order.Version,
+	err := m.DB.QueryRow(ctx, query, userId, productId).Scan(
+		&isOrdered,
 	)
 	if err != nil {
 		switch {
 		case errors.Is(err, sql.ErrNoRows):
-			return nil, ErrRecordNotFound
+			return false, ErrRecordNotFound
 		case errors.Is(err, pgx.ErrNoRows):
-			return nil, ErrRecordNotFound
+			return false, ErrRecordNotFound
 		default:
-			return nil, err
+			return false, err
 		}
 	}
 	// Otherwise, return a pointer to the Movie struct.
-	return &order, nil
+	return isOrdered, nil
 }

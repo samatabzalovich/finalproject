@@ -225,3 +225,51 @@ func (app *application) listProductsHandler(w http.ResponseWriter, r *http.Reque
 		app.serverErrorResponse(w, r, err)
 	}
 }
+
+func (app *application) createReviewHandler(w http.ResponseWriter, r *http.Request) {
+	var input struct {
+		ProductId int64  `json:"productId"`
+		UserId    int64  `json:"user_id"`
+		Rating    int    `json:"rating"`
+		Comment   string `json:"comment"`
+	}
+	err := app.readJSON(w, r, &input)
+	if err != nil {
+		app.badRequestResponse(w, r, err)
+		return
+	}
+	input.UserId = app.contextGetUser(r).ID
+	// Note that the product variable contains a *pointer* to a Movie struct.
+
+	review := &data.RatingSchema{
+		UserId:  input.UserId,
+		Comment: input.Comment,
+		Rating:  input.Rating,
+	}
+	v := validator.New()
+	if data.ValidateReview(v, review); !v.Valid() {
+		app.failedValidationResponse(w, r, v.Errors)
+		return
+	}
+	ok, err := app.models.Orders.IsUserOrderedProduct(review.UserId, input.ProductId, r)
+	if ok != true {
+		if err != nil {
+			app.serverErrorResponse(w, r, err)
+			return
+		}
+		app.notPermittedReview(w, r)
+		return
+	}
+	err = app.models.Products.InsertReview(review, input.ProductId, r)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+		return
+	}
+
+	headers := make(http.Header)
+	headers.Set("Location", fmt.Sprintf("/v1/products/%d", input.ProductId))
+	err = app.writeJSON(w, http.StatusCreated, envelope{"review": review}, headers)
+	if err != nil {
+		app.serverErrorResponse(w, r, err)
+	}
+}

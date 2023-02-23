@@ -12,6 +12,7 @@ import (
 var (
 	ErrRecordNotFound = errors.New("record not found")
 	ErrEditConflict   = errors.New("edit conflict")
+	ErrOutOfStock     = errors.New("out of stock")
 )
 
 // Create a Models struct which wraps the MovieModel. We'll add other models to this,
@@ -23,12 +24,14 @@ type Models struct {
 		Update(movie *Product, r *http.Request) error
 		Delete(id int64, r *http.Request) error
 		GetAll(title string, genres []string, filters Filters, r *http.Request) ([]*Product, Metadata, error)
+		GetReviews(productId int64, r *http.Request) ([]*RatingSchema, error)
+		InsertReview(rating *RatingSchema, productId int64, r *http.Request) error
 	}
 	Orders interface {
 		Insert(userId int64, order *Order, r *http.Request) error
-		//Get(id int64, r *http.Request) (*Order, error)
 		Get(id int64, r *http.Request) (*Order, error)
 		GetAllOrdersForUser(userId int64, filters Filters, r *http.Request) ([]*Order, Metadata, error)
+		IsUserOrderedProduct(userId int64, productId int64, r *http.Request) (bool, error)
 		Update(order *Order, r *http.Request) error
 		Delete(id int64, r *http.Request) error
 	}
@@ -84,7 +87,7 @@ func NewModels(db *pgxpool.Pool) Models {
 
 func NewMockModels() Models {
 	return Models{
-		Products: MockMovieModel{},
+		Products: MockProductModel{},
 		Users:    MockUserModel{},
 		Tokens:   MockTokenModel{},
 	}

@@ -33,7 +33,15 @@ func (app *application) orderProductHandler(w http.ResponseWriter, r *http.Reque
 	}
 	err = app.models.Orders.Insert(input.UserID, order, r)
 	if err != nil {
-		app.serverErrorResponse(w, r, err)
+		switch {
+		case errors.Is(err, data.ErrOutOfStock):
+			v.AddError("product", "product you are trying to order is out of stock")
+			app.failedValidationResponse(w, r, v.Errors)
+		case errors.Is(err, data.ErrRecordNotFound):
+			app.notFoundResponse(w, r)
+		default:
+			app.serverErrorResponse(w, r, err)
+		}
 		return
 	}
 
@@ -55,8 +63,8 @@ func (app *application) listUserOrdersHandler(w http.ResponseWriter, r *http.Req
 	qs := r.URL.Query()
 	input.Filters.Page = app.readInt(qs, "page", 1, v)
 	input.Filters.PageSize = app.readInt(qs, "page_size", 20, v)
-	input.Filters.Sort = app.readString(qs, "sort", "product_id")
-	input.Filters.SortSafelist = []string{"product_id"}
+	input.Filters.Sort = app.readString(qs, "sort", "id")
+	input.Filters.SortSafelist = []string{"id", "status", "-status", "ordered_at", "-ordered_at", "total_price", "-total_price", "-id"}
 	if data.ValidateFilters(v, input.Filters); !v.Valid() {
 		app.failedValidationResponse(w, r, v.Errors)
 		return
